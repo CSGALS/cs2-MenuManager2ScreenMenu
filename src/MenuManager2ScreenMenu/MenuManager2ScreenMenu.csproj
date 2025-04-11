@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.314" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Reference Include="CS2ScreenMenuAPI">
+      <HintPath>$(SolutionDir)thirdparty\CS2ScreenMenuAPI\CS2ScreenMenuAPI.dll</HintPath>
+    </Reference>
+    <Reference Include="MenuManagerApi">
+      <HintPath>$(SolutionDir)thirdparty\MenuManagerApi\MenuManagerApi.dll</HintPath>
+    </Reference>
+    <Reference Include="Tomlyn">
+      <HintPath>$(SolutionDir)thirdparty\CS2ScreenMenuAPI\Tomlyn.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  
+</Project>
