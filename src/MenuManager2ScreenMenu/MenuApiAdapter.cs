@@ -109,13 +109,25 @@ internal class MenuInstanceAdapter : IMenu
 		return ret;
 	}
 
-	private ScreenMenu? TheMenu;
+	// private ScreenMenu? TheMenu;
+	private SortedDictionary<ulong, ScreenMenu> PlayerMenus = new();
+
 	void IMenu.Open(CCSPlayerController player)
 	{
-		TheMenu = new ScreenMenu(player, ApiAdapter.Plugin)
+		if (PlayerMenus.TryGetValue(player.SteamID, out var menu))
 		{
+			menu.Display();
+			return;
+		}
+
+		ScreenMenu? parentMenu = null;
+		ApiAdapter.CurrentParentMenu?.PlayerMenus?.TryGetValue(player.SteamID, out parentMenu);
+
+		menu = new ScreenMenu(player, ApiAdapter.Plugin)
+		{
+			Title = Title,
 			PostSelect = PostSelectType,
-			ParentMenu = ApiAdapter.CurrentParentMenu?.TheMenu,
+			ParentMenu = parentMenu,
 			MenuType = MenuType switch
 			{
 				MenuType.Default => ScreenMenuType.KeyPress,
@@ -130,22 +142,23 @@ internal class MenuInstanceAdapter : IMenu
 
 		foreach (var option in MenuOptions)
 		{
-			Action<CCSPlayerController, IScreenMenuOption> callback = (player, menuOption) =>
+			Action<CCSPlayerController, IScreenMenuOption> callback = (playerCb, menuOption) =>
 			{
 				// try to track parents
 				var was = ApiAdapter.CurrentParentMenu;
 				ApiAdapter.CurrentParentMenu = this;
 				{
-					option.OnSelect(player, option);
+					option.OnSelect(playerCb, option);
+					ResetAction?.Invoke(playerCb);
 				}
 				ApiAdapter.CurrentParentMenu = was;
 			};
 
 			// TODO: maybe strip HTML from option.Text
-			TheMenu.AddItem(option.Text, callback, option.Disabled);
+			menu.AddItem(option.Text, callback, option.Disabled);
 		}
 
-		TheMenu.Display();
+		menu.Display();
 	}
 
 	void IMenu.OpenToAll()
