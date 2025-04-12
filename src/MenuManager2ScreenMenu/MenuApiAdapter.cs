@@ -13,6 +13,9 @@ using IScreenMenuOption = CS2ScreenMenuAPI.IMenuOption;
 using ScreenMenuType = CS2ScreenMenuAPI.MenuType;
 using ScreenMenuPostSelect = CS2ScreenMenuAPI.PostSelect;
 using ScreenMenuApi = CS2ScreenMenuAPI.MenuAPI;
+using AngleSharp.Dom;
+using AngleSharp.Html.Parser;
+using System.Linq;
 
 namespace CsGals;
 
@@ -120,24 +123,15 @@ internal class MenuInstanceAdapter : IMenu
 			return;
 		}
 
-		ScreenMenu? parentMenu = null;
-		ApiAdapter.CurrentParentMenu?.PlayerMenus?.TryGetValue(player.SteamID, out parentMenu);
-
-		menu = new ScreenMenu(player, ApiAdapter.Plugin)
+		var menuState = ApiAdapter.Plugin.GetMenuState(player);
+		
+		menu = PlayerMenus[player.SteamID] = new ScreenMenu(player, ApiAdapter.Plugin)
 		{
 			Title = Title,
 			PostSelect = PostSelectType,
-			ParentMenu = parentMenu,
-			MenuType = MenuType switch
-			{
-				MenuType.Default => ScreenMenuType.KeyPress,
-				MenuType.ChatMenu => ScreenMenuType.KeyPress,
-				MenuType.ConsoleMenu => ScreenMenuType.KeyPress,
-				MenuType.CenterMenu => ScreenMenuType.Scrollable,
-				MenuType.ButtonMenu => ScreenMenuType.KeyPress,
-				MenuType.MetamodMenu => ScreenMenuType.KeyPress,
-				_ => ScreenMenuType.KeyPress,
-			},
+			PrevMenu = menuState.ExecutingScreenMenu,
+			IsSubMenu = menuState.ExecutingScreenMenu is not null,
+			MenuType = menuState.UsingKeyBinds ? ScreenMenuType.KeyPress : ScreenMenuType.Both,
 		};
 
 		foreach (var option in MenuOptions)
@@ -145,21 +139,24 @@ internal class MenuInstanceAdapter : IMenu
 			Action<CCSPlayerController, IScreenMenuOption> callback = (playerCb, menuOption) =>
 			{
 				// try to track parents
-				var was = ApiAdapter.CurrentParentMenu;
-				ApiAdapter.CurrentParentMenu = this;
+				var was = menuState.ExecutingScreenMenu;
+				menuState.ExecutingScreenMenu = menu;
 				{
 					option.OnSelect(playerCb, option);
 					ResetAction?.Invoke(playerCb);
 				}
-				ApiAdapter.CurrentParentMenu = was;
+				menuState.ExecutingScreenMenu = null;
 			};
 
-			// TODO: maybe strip HTML from option.Text
-			menu.AddItem(option.Text, callback, option.Disabled);
+			var doc = HtmlParser.ParseFragment(option.Text, null!);
+			var text = string.Join(string.Empty, doc.Select(x => x.Text()));
+
+			menu.AddItem(text, callback, option.Disabled);
 		}
 
 		menu.Display();
 	}
+	private readonly HtmlParser HtmlParser = new HtmlParser(new HtmlParserOptions() { IsStrictMode = false });
 
 	void IMenu.OpenToAll()
 	{
